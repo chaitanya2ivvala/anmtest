@@ -1,0 +1,22 @@
+#!/usr/bin/python
+import sys
+import subprocess
+import shlex
+import os
+from subprocess import Popen,PIPE,STDOUT
+sys.argv[0] = "/tmp/A2/prober";
+sys.argv.insert(0,"unbuffer");
+sys.argv.insert(4,"-1");
+l=len(sys.argv);
+a=l-5;
+process = subprocess.Popen(sys.argv, stdout=subprocess.PIPE)
+line = process.stdout.readline()
+while line:
+ value=line.split('|')
+ value = [int(float(k)) for k in value]
+ for i in range(a):
+  os.system("curl -i -XPOST 'http://localhost:8086/write?db=A3&u=ats&p=atslabb00&precision=s' --data-binary 'rate,oid='%s' value=%.0f %d'"% (sys.argv[i+5],float(value[i+1]),int(value[0]) ) );
+ line = process.stdout.readline()
+
+
+

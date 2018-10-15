@@ -1,0 +1,74 @@
+#!/usr/bin/perl -w
+use DBI;
+use NetSNMP::TrapReceiver;
+use Net::SNMP;
+my $trapdata="trap.db";
+my $dbh = DBI->connect("dbi:SQLite:dbname=$trapdata","","");
+
+sub snmpreceiver {
+     
+      foreach my $x (@{$_[1]}) { 
+         
+      $time = time;
+      if("$x->[0]" eq ".1.3.6.1.4.1.41717.10.1"){
+      $device = $x->[1] ;
+}
+      if("$x->[0]" eq ".1.3.6.1.4.1.41717.10.2"){
+      $status=$x->[1];
+}
+
+      }
+  
+my $st = qq(SELECT * from trapdevices;);
+my $sth = $dbh->prepare($st);
+my $rv = $sth->execute() or die $DBI::errstr;
+while(my @row = $sth->fetchrow_array()){
+if($device eq "\"$row[0]\""){
+my $stm = qq(UPDATE trapdevices set ostatus= $row[1] , ortime= $row[2], status=$status , newtime=$time  where domainname = "$row[0]";);
+my $r = $dbh->do($stm) or die $DBI::errstr;
+goto START;
+}
+}
+my $stmt = qq(INSERT INTO trapdevices(domainname,status,newtime,ostatus,ortime)
+               VALUES ($device,$status,$time,$status,$time););my $s = $dbh->do($stmt) or die $DBI::errstr;
+START:
+my @fail = ();
+my $stat= qq(SELECT * from trapdevices WHERE status = 3 ;);
+my $state = $dbh->prepare( $stat);
+my $v = $state->execute() or die $DBI::errstr;
+while(my @row = $state->fetchrow_array()) {
+if($row[1]>=$row[3]){
+push @fail,'1.3.6.1.4.1.41717.20.1',OCTET_STRING,$row[0],'1.3.6.1.4.1.41717.20.2',UNSIGNED32,$row[2],'1.3.6.1.4.1.41717.20.3',INTEGER,$row[3],'1.3.6.1.4.1.41717.20.4',UNSIGNED32,$row[4];
+}
+}
+
+$j=0;
+$w = qq(SELECT * from trapdevices WHERE status = 2;);
+$x = $dbh->prepare($w);
+$y = $x->execute() or die $DBI::errstr;
+while(my @row1 = $x->fetchrow_array()) {
+      
+if($row1[1]>=$row1[3]){
+push @fail,'1.3.6.1.4.1.41717.30.'.++$j,OCTET_STRING,$row1[0],'1.3.6.1.4.1.41717.30.'.++$j,UNSIGNED32,$row1[2],'1.3.6.1.4.1.41717.30.'.++$j,INTEGER,$row1[3],'1.3.6.1.4.1.41717.30.'.++$j,UNSIGNED32,$row1[4];
+}
+}
+$stat = qq(SELECT * from snmpmanager;);
+$o = $dbh->prepare($stat);
+$p = $o->execute() or die $DBI::errstr;
+while(my @row2 = $o->fetchrow_array()) {
+       $ip = $row2[0];
+       $port =  $row2[1];
+       $comm = $row2[2] ;
+  
+}
+
+$session = Net::SNMP->session(
+                           -hostname      =>  $ip,
+                           -port          =>  $port,
+                           -community     =>  $comm
+                                                 );
+$result = $session->trap(-varbindlist   => \@fail);
+
+}
+
+  NetSNMP::TrapReceiver::register("all", \&snmpreceiver);

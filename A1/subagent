@@ -1,0 +1,46 @@
+#! /usr/bin/perl
+
+use NetSNMP::agent (':all');
+use NetSNMP::ASN qw(ASN_COUNTER);
+
+sub counter {
+  my ($handler, $registration_info, $request_info, $requests) = @_;
+  my $request; 
+
+  for($request = $requests; $request; $request = $request->next()) {
+    my $oid = $request->getOID();
+    if ($request_info->getMode() == MODE_GET) {
+      if ($oid == new NetSNMP::OID(".1.3.6.1.4.1.4171.40.1")) {
+
+        $request->setValue(ASN_COUNTER, time);
+      }
+      if ($oid >  new NetSNMP::OID(".1.3.6.1.4.1.4171.40.1")) {
+       
+  
+   
+     my $filename = '/tmp/A1/counters.conf';   
+     my @last= split /[.]/,$oid;
+     my $val = $last[-1] -1 ;
+     open(my $fh, '<:encoding(UTF-8)', $filename);
+    while (my $row = <$fh>) {
+      chomp $row;
+      my %s=split /,/,$row;
+      foreach my $a(keys %s){
+      if ($a == $val){
+ my $y=$s{$a}*time;
+ $request->setValue(ASN_COUNTER, $y);
+}
+}
+    }
+
+
+
+
+       }
+      }
+   }
+}
+  
+my $agent = new NetSNMP::agent();
+$agent->register("a1", ".1.3.6.1.4.1.4171.40",
+                 \&counter);
